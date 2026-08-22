@@ -1,3 +1,6 @@
 model-export/venv/
 web/node_modules/
 .DS_Store
+model-export/mmdetection-configs/
+model-export/ckpt/
+model-export/test.jpg
