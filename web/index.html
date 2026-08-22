@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Treja — Detection POC</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0b0c10; color: #e8e8e8; min-height: 100vh;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: #9aa0a6; font-size: 13px; margin-bottom: 16px; }
+  #stage {
+    width: 100%; max-width: 480px; margin: 0 auto;
+    background: #1a1b1f; border-radius: 12px; overflow: hidden;
+  }
+  video, canvas#photo { width: 100%; display: block; border-radius: 12px; }
+  canvas#photo { display: none; }
+  #controls { max-width: 480px; margin: 12px auto; display: flex; gap: 10px; }
+  button {
+    flex: 1; padding: 14px; font-size: 16px; border-radius: 10px; border: none;
+    background: #4f8cff; color: white; font-weight: 600;
+  }
+  button:disabled { background: #333844; color: #777; }
+  button.secondary { background: #2a2d34; color: #e8e8e8; }
+  #status {
+    max-width: 480px; margin: 8px auto; font-size: 13px; color: #9aa0a6; text-align: center; min-height: 18px;
+  }
+  #results { max-width: 480px; margin: 16px auto; }
+  #results h2 { font-size: 14px; color: #9aa0a6; margin: 0 0 8px; font-weight: 600; }
+  .item {
+    display: flex; justify-content: space-between; padding: 10px 12px; background: #1a1b1f;
+    border-radius: 8px; margin-bottom: 6px; font-size: 14px;
+  }
+  .item .name { text-transform: capitalize; }
+  .item .score { color: #7ee787; font-variant-numeric: tabular-nums; }
+  #empty { color: #666; font-size: 13px; text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+  <h1>Treja — Object Detection POC</h1>
+  <div class="sub">RTMDet-Small · runs 100% on this device · nothing sent to a server</div>
+
+  <div id="stage">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="photo"></canvas>
+  </div>
+
+  <div id="controls">
+    <button id="captureBtn" disabled>Loading model…</button>
+    <button id="retakeBtn" class="secondary" style="display:none;">Retake</button>
+  </div>
+  <div id="status"></div>
+
+  <div id="results">
+    <h2>Detected objects</h2>
+    <div id="list"><div id="empty">Take a photo to see results here.</div></div>
+  </div>
+
+  <script src="ort.min.js"></script>
+  <script src="coco-classes.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
