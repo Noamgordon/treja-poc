@@ -1,5 +1,7 @@
 model-export/venv/
-web/node_modules/
+docs/node_modules/
+docs/package.json
+docs/package-lock.json
 .DS_Store
 model-export/mmdetection-configs/
 model-export/ckpt/
