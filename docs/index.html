@@ -37,6 +37,21 @@
   .item .name { text-transform: capitalize; }
   .item .score { color: #7ee787; font-variant-numeric: tabular-nums; }
   #empty { color: #666; font-size: 13px; text-align: center; padding: 20px; }
+  #progressWrap {
+    max-width: 480px; margin: 8px auto; height: 8px; background: #1a1b1f; border-radius: 4px; overflow: hidden;
+  }
+  #progressBar { height: 100%; width: 0%; background: #4f8cff; transition: width 0.15s; }
+  #logBox {
+    max-width: 480px; margin: 12px auto; background: #111318; border: 1px solid #262a33; border-radius: 8px;
+    padding: 8px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: #8fdc8f;
+    max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  #logHeader { max-width: 480px; margin: 16px auto 0; display: flex; justify-content: space-between; align-items: center; }
+  #logHeader span { font-size: 13px; color: #9aa0a6; font-weight: 600; }
+  #copyLogBtn {
+    flex: none; padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #333844;
+    background: #1a1b1f; color: #e8e8e8; font-weight: 500;
+  }
 </style>
 </head>
 <body>
@@ -52,7 +67,14 @@
     <button id="captureBtn" disabled>Loading model…</button>
     <button id="retakeBtn" class="secondary" style="display:none;">Retake</button>
   </div>
+  <div id="progressWrap"><div id="progressBar"></div></div>
   <div id="status"></div>
+
+  <div id="logHeader">
+    <span>Debug log</span>
+    <button id="copyLogBtn">Copy log</button>
+  </div>
+  <div id="logBox"></div>
 
   <div id="results">
     <h2>Detected objects</h2>

@@ -16,46 +16,127 @@ const captureBtn = document.getElementById('captureBtn');
 const retakeBtn = document.getElementById('retakeBtn');
 const statusEl = document.getElementById('status');
 const listEl = document.getElementById('list');
+const progressBar = document.getElementById('progressBar');
+const logBox = document.getElementById('logBox');
+const copyLogBtn = document.getElementById('copyLogBtn');
 
 let session = null;
 let stream = null;
 
+// ---- on-page debug log (mobile browsers have no accessible console) ----
+function log(msg) {
+  const t = new Date().toISOString().split('T')[1].replace('Z', '');
+  logBox.textContent += `[${t}] ${msg}\n`;
+  logBox.scrollTop = logBox.scrollHeight;
+}
+window.addEventListener('error', (e) => log('WINDOW ERROR: ' + e.message));
+window.addEventListener('unhandledrejection', (e) => log('UNHANDLED PROMISE: ' + (e.reason?.stack || e.reason)));
+copyLogBtn.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(logBox.textContent);
+    copyLogBtn.textContent = 'Copied!';
+    setTimeout(() => (copyLogBtn.textContent = 'Copy log'), 1500);
+  } catch (e) {
+    log('Clipboard failed: ' + e.message + ' — select the text manually instead.');
+  }
+});
+
 function setStatus(msg) { statusEl.textContent = msg; }
+function setProgress(pct) { progressBar.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
 
 async function initCamera() {
+  log('Requesting camera permission…');
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 1280 } },
       audio: false,
     });
     video.srcObject = stream;
+    log('Camera stream acquired OK.');
   } catch (err) {
-    setStatus('Camera error: ' + err.message + ' (needs HTTPS + camera permission)');
+    log('CAMERA FAILED: ' + err.name + ' — ' + err.message);
+    setStatus('Camera error: ' + err.message);
     throw err;
   }
 }
 
+// Fetch a URL manually (instead of letting ort.InferenceSession.create fetch it
+// internally) so we can show real download progress and log exactly where it fails.
+async function fetchWithProgress(url, onProgress) {
+  log(`Fetching ${url} …`);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
+  const total = Number(res.headers.get('content-length')) || 0;
+  log(`${url}: content-length = ${total ? (total / 1e6).toFixed(1) + ' MB' : 'unknown'}`);
+  if (!res.body || !total) {
+    const buf = await res.arrayBuffer();
+    log(`${url}: downloaded ${(buf.byteLength / 1e6).toFixed(1)} MB (no progress stream available)`);
+    return buf;
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let received = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    onProgress(received / total);
+  }
+  const buf = new Uint8Array(received);
+  let offset = 0;
+  for (const c of chunks) { buf.set(c, offset); offset += c.length; }
+  log(`${url}: download complete (${(received / 1e6).toFixed(1)} MB).`);
+  return buf.buffer;
+}
+
 async function initModel() {
   ort.env.wasm.wasmPaths = './';
-  // GitHub Pages can't set the COOP/COEP headers multi-threaded WASM needs
-  // (SharedArrayBuffer), so force single-threaded — fine for one photo at a time.
-  ort.env.wasm.numThreads = 1;
-  session = await ort.InferenceSession.create('./model.onnx', {
+  ort.env.wasm.numThreads = 1; // GitHub Pages can't set COOP/COEP headers threaded WASM needs
+  ort.env.logLevel = 'verbose';
+  log('ort env configured (wasmPaths=./, numThreads=1). ort version: ' + (ort.env.versions?.web || 'unknown'));
+
+  const modelBuffer = await fetchWithProgress('./model.onnx', (frac) => {
+    setProgress(frac * 100);
+    setStatus(`Downloading model… ${(frac * 100).toFixed(0)}%`);
+  });
+
+  log('Creating InferenceSession (this step compiles the WASM — can take a while on first run)…');
+  setStatus('Compiling model on-device (this can take up to a minute the first time)…');
+  const t0 = performance.now();
+  session = await ort.InferenceSession.create(modelBuffer, {
     executionProviders: ['wasm'],
     graphOptimizationLevel: 'all',
   });
+  log(`InferenceSession created in ${((performance.now() - t0) / 1000).toFixed(1)}s.`);
+  log('Input names: ' + JSON.stringify(session.inputNames) + ' | Output names: ' + JSON.stringify(session.outputNames));
 }
 
 async function boot() {
+  log('Boot started. UA: ' + navigator.userAgent);
   setStatus('Starting camera…');
-  await initCamera();
-  setStatus('Loading model (~40MB, first time only)…');
-  await initModel();
+  try {
+    await initCamera();
+  } catch (e) {
+    captureBtn.textContent = 'Camera error — see log';
+    return;
+  }
+  setStatus('Loading model (~55MB total, first time only)…');
+  try {
+    await initModel();
+  } catch (e) {
+    log('MODEL LOAD FAILED: ' + (e.stack || e.message || e));
+    setStatus('Model failed to load — see debug log below, tap "Copy log" and send it over.');
+    captureBtn.textContent = 'Model error — see log';
+    return;
+  }
+  setProgress(100);
   setStatus('Ready.');
   captureBtn.disabled = false;
   captureBtn.textContent = 'Take Photo';
+  log('Boot complete. Ready for capture.');
 }
-boot().catch((e) => console.error(e));
+boot();
 
 captureBtn.addEventListener('click', async () => {
   captureBtn.disabled = true;
